@@ -1,58 +1,69 @@
-# Módulo para consultar precios de acciones en tiempo real usando yfinance
 import yfinance as yf
+
 from utils.sanitizar import sanitizar
 
-# Diccionario para mapear nombres comunes de empresas a sus Tickers de bolsa correspondientes
+
 COMPANY_TICKERS = {
     "microsoft": "MSFT",
     "apple": "AAPL",
     "google": "GOOGL",
     "alphabet": "GOOGL",
     "amazon": "AMZN",
+    "tesla": "TSLA",
     "meta": "META",
     "facebook": "META",
     "netflix": "NFLX",
     "nvidia": "NVDA",
-    "apple inc": "AAPL",
-    "microsoft corp": "MSFT",
-
 }
+
 
 def obtener_precio_accion(driver, user_input):
     """
-    Busca y retorna el precio actual de una acción utilizando la librería yfinance.
-    
-    Argumentos:
-        driver: Instancia de Selenium WebDriver (opcional).
-        user_input: Input del usuario que contiene el nombre de la empresa.
-    
-    Retorna:
-        El precio formateado como cadena o un mensaje explicativo si no se encuentra.
+    Obtiene el precio de una acción mediante yfinance.
     """
-    # Sanitizar el input para extraer únicamente el nombre de la empresa o el ticker
-    company_name = sanitizar(user_input)
-    
-    # Buscar si el nombre está en nuestro mapeo interno de tickers
-    ticker = COMPANY_TICKERS.get(company_name)
-    
-    # Si no está en el mapa, asumimos que el usuario pudo haber ingresado el Ticker directamente
-    if not ticker:
-        ticker = company_name.upper()
+
+    # El driver se conserva por compatibilidad.
+    del driver
+
+    consulta = sanitizar(user_input)
+    ticker = None
+    empresa_encontrada = None
+
+    # Busca el nombre de la empresa dentro de la consulta.
+    for empresa, simbolo in COMPANY_TICKERS.items():
+        if empresa in consulta:
+            ticker = simbolo
+            empresa_encontrada = empresa.title()
+            break
+
+    if ticker is None:
+        return (
+            "No reconocí la empresa. Prueba con Microsoft, Apple, "
+            "Google, Amazon, Tesla, Meta, Netflix o Nvidia."
+        )
 
     try:
-        # Inicializar el objeto Ticker de yfinance
-        stock = yf.Ticker(ticker)
-        
-        # Obtener el historial del último día para extraer el precio de cierre más reciente
-        data = stock.history(period="1d")
-        
-        if not data.empty:
-            # Extraer el valor de la columna 'Close' de la última fila disponible
-            price = data['Close'].iloc[-1]
-            return f"${price:.2f}"
-        else:
-            return "No se encontraron datos de cotización (puede que el símbolo sea incorrecto o esté deslistado)."
-            
-    except Exception as e:
-        # Capturar errores de la API o problemas de red
-        return f"Error al consultar el precio de la acción: {e}"
+        accion = yf.Ticker(ticker)
+        historial = accion.history(period="5d")
+
+        if historial.empty:
+            return (
+                f"No se encontraron datos para {empresa_encontrada} "
+                f"({ticker})."
+            )
+
+        precio = historial["Close"].dropna().iloc[-1]
+
+        try:
+            divisa = accion.fast_info["currency"]
+        except Exception:
+            divisa = "USD"
+
+        return (
+            f"El precio actual de la acción de "
+            f"{empresa_encontrada} ({ticker}) es "
+            f"${precio:,.2f} {divisa}."
+        )
+
+    except Exception as error:
+        return f"No se pudo obtener el precio de la acción: {error}"

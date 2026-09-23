@@ -1,32 +1,62 @@
 # Módulo encargado de la integración con servicios meteorológicos externos
+import re
 import requests
+import urllib3
+
+
+# Oculta la advertencia producida al utilizar verify=False
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 
 def obtener_clima(driver, user_input):
     """
-    Obtiene la temperatura actual de una ciudad utilizando el servicio wttr.in.
-    
+    Obtiene la temperatura actual utilizando el servicio wttr.in.
+
     Argumentos:
-        driver: Instancia de Selenium WebDriver (no se usa en esta implementación, pero se mantiene por compatibilidad).
-        user_input: El texto ingresado por el usuario o ya procesado.
-    
+        driver: Instancia de Selenium WebDriver.
+        user_input: Texto ingresado por el usuario.
+
     Retorna:
-        Una cadena con la temperatura o un mensaje de error.
+        La temperatura o un mensaje de error.
     """
-    # Intentamos extraer el nombre de la ciudad eliminando palabras clave comunes
-    # Esto ayuda si se le pasa el input completo sin procesar previamente
-    city = user_input.lower().replace("clima", "").replace("temperatura", "").replace("en", "").replace("de", "").strip()
-    
+
+    # Se conserva el argumento por compatibilidad, aunque aquí no se utiliza.
+    del driver
+
+    # Elimina únicamente las palabras completas, sin alterar la ciudad.
+    city = re.sub(
+        r"\b(clima|temperatura|actual|cual|es|el|la|en|de)\b",
+        "",
+        user_input.lower(),
+    )
+
+    city = " ".join(city.split()).strip("¿?., ")
+
+    if not city:
+        return "No pude reconocer la ciudad. Ejemplo: clima en Guadalajara."
+
     try:
-        # Realizamos una petición GET al servicio wttr.in
-        # Usamos el parámetro format=%t para recibir únicamente la temperatura (ej. +25°C)
-        response = requests.get(f"https://wttr.in/{city}?format=%t", timeout=10)
-        
-        # Si la respuesta es exitosa (200), devolvemos el texto
+        response = requests.get(
+            f"https://wttr.in/{city}",
+            params={"format": "%t"},
+            timeout=15,
+            verify=False,
+        )
+
         if response.status_code == 200:
-            return response.text.strip()
-        else:
-            return "No se pudo obtener el clima para esa ubicación (Código de error)."
-            
-    except Exception as e:
-        # Manejo de excepciones en caso de fallo en la conexión o timeout
-        return f"Error de red al obtener el clima: {e}"
+            temperatura = response.text.strip()
+            return f"La temperatura actual en {city.title()} es {temperatura}."
+
+        return (
+            "No se pudo obtener el clima para esa ubicación. "
+            f"Código de error: {response.status_code}."
+        )
+
+    except requests.exceptions.Timeout:
+        return "El servicio del clima tardó demasiado en responder."
+
+    except requests.exceptions.ConnectionError:
+        return "No se pudo establecer conexión con el servicio del clima."
+
+    except requests.exceptions.RequestException as error:
+        return f"Error de red al obtener el clima: {error}"

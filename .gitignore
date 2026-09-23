@@ -18,3 +18,7 @@ env/
 
 # Logs
 *.log
+.venv/
+__pycache__/
+*.pyc
+error.txt

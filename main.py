@@ -1,5 +1,25 @@
 import re
 import sys
+from funciones_agente.obtener_clima import obtener_clima
+from funciones_agente.obtener_precio_accion import obtener_precio_accion
+
+
+def procesar_input(user_input):
+    """
+    Determina qué función debe ejecutar el chatbot.
+    """
+
+    if "clima" in user_input or "temperatura" in user_input:
+        return obtener_clima
+
+    if (
+        "precio" in user_input
+        or "accion" in user_input
+        or "valor" in user_input
+    ):
+        return obtener_precio_accion
+
+    return None
 # Importamos las funciones de lógica de negocio desde nuestro paquete de funciones
 from funciones_agente.obtener_precio_accion import obtener_precio_accion
 from funciones_agente.obtener_clima import obtener_clima
